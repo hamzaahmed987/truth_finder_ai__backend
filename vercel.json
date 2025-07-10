@@ -1,9 +1,6 @@
 {
   "version": 2,
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "app/main.py"
-    }
+  "builds": [
+    { "src": "Dockerfile", "use": "@vercel/docker" }
   ]
 } 
