@@ -7,6 +7,7 @@ import re
 import json
 from dotenv import load_dotenv
 import os
+
 load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 print(f"[DEBUG] GEMINI_API_KEY: {os.getenv('gemini_api_key')}")
 
@@ -14,14 +15,23 @@ logger = logging.getLogger(__name__)
 
 class GeminiService:
     def __init__(self):
+        self.model = None
+        self.is_available = False
+        
         try:
+            # Check if API key is available
+            if not settings.gemini_api_key:
+                logger.warning("⚠️ Gemini API key not configured. Gemini service will be disabled.")
+                return
+                
             genai.configure(api_key=settings.gemini_api_key)
             self.model = genai.GenerativeModel('gemini-2.5-flash')
-            logger.info("Gemini AI client initialized successfully")
+            self.is_available = True
+            logger.info("✅ Gemini AI client initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize Gemini client: {e}")
+            logger.error(f"❌ Failed to initialize Gemini client: {e}")
             print(f"[DEBUG] GeminiService init error: {e}")
-            raise
+            self.is_available = False
     
     async def analyze_news_credibility(
         self, 
@@ -31,6 +41,10 @@ class GeminiService:
         """
         Analyze news content credibility using Gemini AI
         """
+        if not self.is_available or not self.model:
+            logger.warning("⚠️ Gemini service not available. Returning fallback result.")
+            return self._create_error_result("Gemini AI service not available")
+            
         try:
             logger.info("Starting Gemini AI analysis")
             
@@ -162,4 +176,42 @@ Provide specific, actionable reasoning for your assessment. Be thorough but conc
         # Determine confidence
         confidence_score = 0.5
         if 'high confidence' in response_lower or 'very confident' in response_lower:
-            confidence_score = 0.
+            confidence_score = 0.8
+        elif 'low confidence' in response_lower or 'uncertain' in response_lower:
+            confidence_score = 0.3
+        
+        # Determine credibility level
+        if is_fake:
+            credibility = CredibilityLevel.likely_fake
+        elif confidence_score > 0.7:
+            credibility = CredibilityLevel.credible
+        else:
+            credibility = CredibilityLevel.questionable
+        
+        return FactCheckResult(
+            is_fake=is_fake,
+            credibility_level=credibility,
+            confidence_score=confidence_score,
+            reasoning=response_text[:500] + "..." if len(response_text) > 500 else response_text,
+            sources_checked=["Gemini AI Analysis"],
+            analysis_details="AI analysis performed with fallback parsing",
+            key_findings=[],
+            contradictions_found=[],
+            supporting_evidence=[]
+        )
+    
+    def _create_error_result(self, error_message: str) -> FactCheckResult:
+        """
+        Create a fallback result when errors occur
+        """
+        return FactCheckResult(
+            is_fake=False,
+            credibility_level=CredibilityLevel.questionable,
+            confidence_score=0.0,
+            reasoning=f"Analysis failed: {error_message}",
+            sources_checked=[],
+            analysis_details="Error occurred during analysis",
+            key_findings=[],
+            contradictions_found=[],
+            supporting_evidence=[]
+        )

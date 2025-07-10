@@ -63,28 +63,57 @@ def filter_output(text: str) -> str:
 
 @router.post("/agent/chat")
 async def chat_agent(request: Request):
-    data = await request.json()
-    message = sanitize_input(data.get('message', ''))
-    session_id = data.get('session_id') or str(uuid.uuid4())
+    try:
+        data = await request.json()
+        message = sanitize_input(data.get('message', ''))
+        session_id = data.get('session_id') or str(uuid.uuid4())
 
-    if contains_blocked_keywords(message):
-        raise HTTPException(status_code=400, detail="Inappropriate content detected.")
-    if contains_prompt_injection(message):
-        raise HTTPException(status_code=400, detail="Prompt injection attempt detected.")
+        if not message:
+            raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    history = CHAT_SESSIONS.setdefault(session_id, [])
-    history.append({"role": "user", "content": message})
-    lower_msg = message.lower()
+        if contains_blocked_keywords(message):
+            raise HTTPException(status_code=400, detail="Inappropriate content detected.")
+        if contains_prompt_injection(message):
+            raise HTTPException(status_code=400, detail="Prompt injection attempt detected.")
 
-    # Intent routing using the new main agent/orchestrator
-    if any(k in lower_msg for k in IDENT_KEYWORDS):
-        agent_reply = IDENTITY_RESPONSE
-    elif any(k in lower_msg for k in SUMMARY_KEYWORDS + FACTCHECK_KEYWORDS + BIAS_KEYWORDS + INVESTIGATE_KEYWORDS + REPORT_KEYWORDS + NEWS_KEYWORDS):
-        agent_reply = await multi_agent_orchestrator(message)
-    else:
-        agent_reply = await multi_agent_orchestrator(message)
+        history = CHAT_SESSIONS.setdefault(session_id, [])
+        history.append({"role": "user", "content": message})
+        lower_msg = message.lower()
 
-    history.append({"role": "agent", "content": agent_reply})
-    return {"response": agent_reply, "session_id": session_id, "history": history}
+        # Intent routing using the new main agent/orchestrator
+        try:
+            if any(k in lower_msg for k in IDENT_KEYWORDS):
+                agent_reply = IDENTITY_RESPONSE
+            elif any(k in lower_msg for k in SUMMARY_KEYWORDS + FACTCHECK_KEYWORDS + BIAS_KEYWORDS + INVESTIGATE_KEYWORDS + REPORT_KEYWORDS + NEWS_KEYWORDS):
+                agent_reply = await multi_agent_orchestrator(message)
+            else:
+                agent_reply = await multi_agent_orchestrator(message)
+        except Exception as e:
+            logger.error(f"Error in agent orchestration: {e}")
+            agent_reply = "I'm experiencing technical difficulties right now. Please try again in a moment."
+
+        history.append({"role": "agent", "content": agent_reply})
+        return {"response": agent_reply, "session_id": session_id, "history": history}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in chat_agent: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again.")
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint for the fact-check service"""
+    return {"status": "healthy", "service": "fact-check"}
+
+@router.get("/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get chat session history"""
+    try:
+        history = CHAT_SESSIONS.get(session_id, [])
+        return {"session_id": session_id, "history": history}
+    except Exception as e:
+        logger.error(f"Error getting session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving session")
 
 

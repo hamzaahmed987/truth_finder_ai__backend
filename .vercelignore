@@ -1,17 +1,25 @@
-# Ignore virtual environments
-.venv/
 venv/
 __pycache__/
-
-# Ignore git
-.git/
-
-# Ignore IDE files
-.vscode/
-.idea/
-
-# Ignore logs
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.log
-
-# Ignore local development files
-run.py 
+.git/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 

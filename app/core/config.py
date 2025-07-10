@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 import os
 import json
 
@@ -9,15 +9,15 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = True
 
-    # Twitter API credentials
-    twitter_api_key: str
-    twitter_api_secret: str
-    twitter_access_token: str
-    twitter_access_token_secret: str
-    twitter_bearer_token: str  # ✅ Add this line
+    # Twitter API credentials (make optional with fallbacks)
+    twitter_api_key: Optional[str] = None
+    twitter_api_secret: Optional[str] = None
+    twitter_access_token: Optional[str] = None
+    twitter_access_token_secret: Optional[str] = None
+    twitter_bearer_token: Optional[str] = None
 
-    # Gemini API
-    gemini_api_key: str
+    # Gemini API (make optional with fallback)
+    gemini_api_key: Optional[str] = None
 
     # CORS
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -40,7 +40,20 @@ class Settings(BaseSettings):
             except Exception:
                 return raw_val
 
-settings = Settings()
+# Create settings instance with fallback handling
+try:
+    settings = Settings()
+except Exception as e:
+    print(f"Warning: Error loading settings: {e}")
+    # Create a minimal settings object with defaults
+    settings = Settings(
+        twitter_api_key="",
+        twitter_api_secret="",
+        twitter_access_token="",
+        twitter_access_token_secret="",
+        twitter_bearer_token="",
+        gemini_api_key=""
+    )
 
 DEFAULT_AGENT_INSTRUCTIONS = (
     "You are TruthFinder, an AI-powered news assistant. "

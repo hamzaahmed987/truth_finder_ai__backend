@@ -16,7 +16,20 @@ logger = logging.getLogger(__name__)
 
 class TwitterService:
     def __init__(self):
+        self.client = None
+        self.is_available = False
+        
         try:
+            # Check if we have the required API keys
+            if not all([
+                settings.twitter_api_key,
+                settings.twitter_api_secret,
+                settings.twitter_access_token,
+                settings.twitter_access_token_secret
+            ]):
+                logger.warning("⚠️ Twitter API keys not configured. Twitter service will be disabled.")
+                return
+                
             self.client = tweepy.Client(
                 consumer_key=settings.twitter_api_key,
                 consumer_secret=settings.twitter_api_secret,
@@ -24,16 +37,24 @@ class TwitterService:
                 access_token_secret=settings.twitter_access_token_secret,
                 wait_on_rate_limit=True
             )
+            self.is_available = True
             logger.info("✅ Twitter client initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Twitter client: {e}")
-            raise
+            self.is_available = False
 
     async def search_tweets(self, keyword: str, max_results: int = 10) -> List[TwitterTweet]:
         """Search recent tweets containing the keyword (cleaned)."""
+        if not self.is_available:
+            logger.warning("⚠️ Twitter service not available. Returning empty results.")
+            return []
+            
         return await asyncio.to_thread(self._search_tweets_sync, keyword, max_results)
 
     def _search_tweets_sync(self, keyword: str, max_results: int) -> List[TwitterTweet]:
+        if not self.client:
+            return []
+            
         try:
             query = self._clean_search_query(keyword)
             logger.info(f"🔍 Searching tweets: {query}")
@@ -70,19 +91,25 @@ class TwitterService:
 
         except tweepy.TooManyRequests:
             logger.error("🚫 Twitter rate limit hit")
-            raise Exception("Rate limit exceeded. Try again later.")
+            return []
         except tweepy.Unauthorized:
             logger.error("🔐 Twitter API unauthorized")
-            raise Exception("Twitter credentials invalid.")
+            return []
         except Exception as e:
             logger.error(f"❌ Twitter search error: {e}")
             return []
 
     async def get_tweet_by_id(self, tweet_id: str) -> Optional[TwitterTweet]:
         """Get a tweet by ID."""
+        if not self.is_available:
+            return None
+            
         return await asyncio.to_thread(self._get_tweet_by_id_sync, tweet_id)
 
     def _get_tweet_by_id_sync(self, tweet_id: str) -> Optional[TwitterTweet]:
+        if not self.client:
+            return None
+            
         try:
             response = self.client.get_tweet(
                 tweet_id,
