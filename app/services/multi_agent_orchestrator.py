@@ -9,7 +9,7 @@ from app.services.tools import TRUTHFINDER_TOOLS
 GEMINI_API_KEY = os.getenv("gemini_api_key")
 print(f"[DEBUG] GEMINI_API_KEY: {GEMINI_API_KEY}")
 
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={GEMINI_API_KEY}"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
 # Add greeting keywords
 GREETING_KEYWORDS = ["hello", "hi", "hey", "salaam", "assalam", "greetings"]
@@ -90,7 +90,11 @@ async def call_gemini_api(prompt: str) -> str:
     try:
         async with httpx.AsyncClient() as client:
             res = await client.post(GEMINI_URL, json=payload)
-            res.raise_for_status()
+            try:
+                res.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                print(f"[DEBUG] Gemini API HTTP error: {e.response.status_code} {e.response.text}")
+                return f"[Gemini API Error: {e.response.status_code} {e.response.text}]"
             data = res.json()
             return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
     except Exception as e:

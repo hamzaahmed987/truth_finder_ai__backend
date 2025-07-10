@@ -50,7 +50,7 @@ class NewsAnalyzer:
         if not self.gemini_api_key:
             print("[DEBUG] Gemini API key missing in NewsAnalyzer.call_gemini")
             return {'analysis': 'No Gemini API key provided.', 'confidence': 0.0, 'verdict': 'UNKNOWN'}
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=" + self.gemini_api_key
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + self.gemini_api_key
         prompt = f"Fact-check the following news content.\nContent: {content}\n"
         if tweets:
             prompt += f"Related tweets: {tweets}\n"

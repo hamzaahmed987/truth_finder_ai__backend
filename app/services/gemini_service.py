@@ -16,7 +16,7 @@ class GeminiService:
     def __init__(self):
         try:
             genai.configure(api_key=settings.gemini_api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-pro')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
             logger.info("Gemini AI client initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Gemini client: {e}")
