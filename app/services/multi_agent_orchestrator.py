@@ -2,14 +2,10 @@ import os
 import httpx
 import json
 from dotenv import load_dotenv
-import os
-load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
-print(f"[DEBUG] GEMINI_API_KEY: {os.getenv('gemini_api_key')}")
 from app.services.tools import TRUTHFINDER_TOOLS
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("gemini_api_key")
-print(f"[DEBUG] GEMINI_API_KEY: {GEMINI_API_KEY}")
 
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
@@ -52,12 +48,10 @@ async def call_gemini_api(prompt: str) -> str:
             try:
                 res.raise_for_status()
             except httpx.HTTPStatusError as e:
-                print(f"[DEBUG] Gemini API HTTP error: {e.response.status_code} {e.response.text}")
                 return f"[Gemini API Error: {e.response.status_code} {e.response.text}]"
             data = res.json()
             return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
     except Exception as e:
-        print(f"[DEBUG] Gemini API error: {e}")
         return f"[Gemini API Error: {e}]"
 
 # Main TruthFinderAgent class
@@ -71,6 +65,33 @@ class TruthFinderAgent:
             return await tool(**kwargs)
         # Default: Use orchestrator logic to pick tool
         return await multi_agent_orchestrator(user_input)
+
+# MultiAgentOrchestrator class for compatibility
+class MultiAgentOrchestrator:
+    def __init__(self):
+        self.tools = TRUTHFINDER_TOOLS
+        self.agent = TruthFinderAgent(self.tools)
+    
+    async def analyze_news(self, content: str, language: str = "english") -> dict:
+        """Analyze news content using multiple agents"""
+        try:
+            # Get fact check
+            fact_check = await factcheck_agent(content)
+            
+            # Get summary
+            summary = await summarizer_agent(content)
+            
+            return {
+                "fact_check": fact_check,
+                "summary": summary,
+                "language": language,
+                "status": "completed"
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "status": "failed"
+            }
 
 # Instantiate the main agent with all tools
 main_agent = TruthFinderAgent(TRUTHFINDER_TOOLS)

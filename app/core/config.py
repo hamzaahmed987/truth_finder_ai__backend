@@ -40,20 +40,8 @@ class Settings(BaseSettings):
             except Exception:
                 return raw_val
 
-# Create settings instance with fallback handling
-try:
-    settings = Settings()
-except Exception as e:
-    print(f"Warning: Error loading settings: {e}")
-    # Create a minimal settings object with defaults
-    settings = Settings(
-        twitter_api_key="",
-        twitter_api_secret="",
-        twitter_access_token="",
-        twitter_access_token_secret="",
-        twitter_bearer_token="",
-        gemini_api_key=""
-    )
+# Create settings instance
+settings = Settings()
 
 DEFAULT_AGENT_INSTRUCTIONS = (
     "You are TruthFinder, an AI-powered news assistant. "

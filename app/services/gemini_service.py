@@ -5,11 +5,7 @@ from typing import List, Dict, Any
 import logging
 import re
 import json
-from dotenv import load_dotenv
 import os
-
-load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
-print(f"[DEBUG] GEMINI_API_KEY: {os.getenv('gemini_api_key')}")
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +26,6 @@ class GeminiService:
             logger.info("✅ Gemini AI client initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Gemini client: {e}")
-            print(f"[DEBUG] GeminiService init error: {e}")
             self.is_available = False
     
     async def analyze_news_credibility(
@@ -68,7 +63,6 @@ class GeminiService:
             
         except Exception as e:
             logger.error(f"Gemini AI analysis error: {e}")
-            print(f"[DEBUG] GeminiService analyze_news_credibility error: {e}")
             return self._create_error_result(str(e))
     
     def _prepare_twitter_context(self, twitter_data: List[Dict[str, Any]]) -> str:

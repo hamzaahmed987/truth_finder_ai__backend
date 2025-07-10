@@ -2,6 +2,10 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional
 import re
 
+class FactCheckRequest(BaseModel):
+    content: str = Field(..., description="News content to fact-check", max_length=5000)
+    language: Optional[str] = Field(None, description="Language of the content (optional)")
+
 class NewsCheckRequest(BaseModel):
     news_text: Optional[str] = Field(
         None, 

@@ -32,19 +32,9 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "TruthFinder API"}
 
-# Import routes with error handling
-try:
-    from app.routes.fact_check import router as fact_check_router
-    app.include_router(fact_check_router, prefix="/api/v1", tags=["fact-check"])
-except ImportError as e:
-    print(f"Warning: Could not import fact_check router: {e}")
-    
-    @app.post("/api/v1/fact-check")
-    async def fallback_fact_check():
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Fact-check service temporarily unavailable"}
-        )
+# Import routes
+from app.routes.fact_check import router as fact_check_router
+app.include_router(fact_check_router, prefix="/api/v1", tags=["fact-check"])
 
 # Error handlers
 @app.exception_handler(404)

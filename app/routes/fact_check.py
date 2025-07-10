@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
 from app.services.news_analyzer import NewsAnalyzer
 from app.services.multi_agent_orchestrator import main_agent, multi_agent_orchestrator
+from app.models.request_models import FactCheckRequest
+from app.models.response_models import FactCheckResult
 import logging
 import re
 import uuid
@@ -60,6 +62,33 @@ def contains_prompt_injection(text: str) -> bool:
 
 def filter_output(text: str) -> str:
     return '[REDACTED: Inappropriate content detected]' if contains_blocked_keywords(text) else text
+
+@router.post("/fact-check")
+async def fact_check_endpoint(request: FactCheckRequest):
+    """Main fact-checking endpoint"""
+    try:
+        # Sanitize input
+        content = sanitize_input(request.content)
+        
+        if not content:
+            raise HTTPException(status_code=400, detail="Content cannot be empty.")
+        
+        if contains_blocked_keywords(content):
+            raise HTTPException(status_code=400, detail="Inappropriate content detected.")
+        
+        if contains_prompt_injection(content):
+            raise HTTPException(status_code=400, detail="Prompt injection attempt detected.")
+        
+        # Use the news analyzer for comprehensive analysis
+        result = await news_analyzer.analyze_news_advanced(content, request.language or "english")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in fact-check endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during fact-checking.")
 
 @router.post("/agent/chat")
 async def chat_agent(request: Request):
