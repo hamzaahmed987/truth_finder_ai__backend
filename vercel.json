@@ -1,8 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/analyzer.py", "use": "@vercel/python" }
-  ],
   "routes": [
     { "src": "/(.*)", "dest": "api/analyzer.py" }
   ]
