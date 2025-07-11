@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
 
     # CORS
-    cors_origins: List[str] = ["https://truth-finder-ai.vercel.app"]
+    cors_origins: List[str] = ["https://truth-finder-ai.vercel.app" , "http://localhost:3000"]
 
     # API Settings
     max_tweets_per_request: int = 50
