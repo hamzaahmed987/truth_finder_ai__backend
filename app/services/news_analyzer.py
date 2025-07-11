@@ -18,7 +18,7 @@ class NewsAnalyzer:
             result = await self.orchestrator(news_text)
             return result
         except Exception as e:
-            return f"Error analyzing news: {str(e)}"
+            return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else."
 
     async def fact_check(self, claim: str) -> str:
         """
@@ -28,7 +28,7 @@ class NewsAnalyzer:
             result = await self.orchestrator(f"Fact check this claim: {claim}")
             return result
         except Exception as e:
-            return f"Error fact-checking: {str(e)}"
+            return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else."
 
     async def summarize(self, text: str) -> str:
         """
@@ -38,4 +38,4 @@ class NewsAnalyzer:
             result = await self.orchestrator(f"Summarize this: {text}")
             return result
         except Exception as e:
-            return f"Error summarizing: {str(e)}" 
+            return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else." 

@@ -12,6 +12,13 @@ GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.
 # Add greeting keywords
 GREETING_KEYWORDS = ["hello", "hi", "hey", "salaam", "assalam", "greetings"]
 
+# Add news event keywords for intent detection
+NEWS_EVENT_KEYWORDS = [
+    "news", "breaking", "happened", "event", "incident", "attack", "war", "earthquake", "election", "trending", "protest", "riot", "conflict", "explosion", "disaster", "crisis", "shooting", "flood", "storm", "fire", "accident", "strike", "emergency"
+]
+
+from app.services.tools import search_twitter
+
 # ------------------------ 🔧 Sub-Agent: Fact-Checker ------------------------
 async def factcheck_agent(news_text: str) -> str:
     prompt = f"""
@@ -37,6 +44,33 @@ Return a 3-5 sentence summary.
 """
     return await call_gemini_api(prompt)
 
+# ------------------------ 📰 Sub-Agent: News Event Analyzer ------------------------
+async def news_event_agent(user_message: str) -> str:
+    """
+    Sub-agent for news event queries: fetches Twitter data and combines it with LLM analysis.
+    """
+    # Extract keywords (simple approach: use the user message directly)
+    keywords = user_message
+    # Fetch recent tweets
+    tweets = await search_twitter(keywords, max_results=10)
+    # Format tweets for LLM context
+    if tweets:
+        twitter_context = "\n\n".join([
+            f"Tweet by @{t.author_username}: {t.text}" for t in tweets
+        ])
+    else:
+        twitter_context = "No relevant tweets found."
+    # Compose prompt for LLM
+    prompt = (
+        "You are TruthFinder, an AI assistant that analyzes news events using both news and social media data. "
+        "Below is a user question about a recent event, and some recent tweets about the topic. "
+        "Use both sources to provide a comprehensive, up-to-date answer.\n\n"
+        f"User question: {user_message}\n\n"
+        f"Recent tweets:\n{twitter_context}\n\n"
+        "Answer:"
+    )
+    return await call_gemini_api(prompt)
+
 # ------------------------ 🔁 Utility: Gemini API Caller ------------------------
 async def call_gemini_api(prompt: str) -> str:
     payload = {
@@ -48,11 +82,14 @@ async def call_gemini_api(prompt: str) -> str:
             try:
                 res.raise_for_status()
             except httpx.HTTPStatusError as e:
-                return f"[Gemini API Error: {e.response.status_code} {e.response.text}]"
+                return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else."
             data = res.json()
-            return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+            if not text:
+                return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else."
+            return text
     except Exception as e:
-        return f"[Gemini API Error: {e}]"
+        return "Sorry, this topic seems too sensitive for the AI to respond to. Please try rephrasing or ask about something else."
 
 # Main TruthFinderAgent class
 class TruthFinderAgent:
@@ -99,31 +136,34 @@ main_agent = TruthFinderAgent(TRUTHFINDER_TOOLS)
 # Update orchestrator to use tools and allow handoff
 async def multi_agent_orchestrator(user_message: str) -> str:
     # Example intent detection (expand as needed)
-    if any(k in user_message.lower() for k in GREETING_KEYWORDS):
+    lower_msg = user_message.lower()
+    if any(k in lower_msg for k in GREETING_KEYWORDS):
         return "Hello! 👋 I'm TruthFinder. How can I help you with news, fact-checking, or analysis today?"
-    if any(k in user_message.lower() for k in ["who are you", "about you", "yourself"]):
+    if any(k in lower_msg for k in ["who are you", "about you", "yourself"]):
         return (
             "I'm Truth Finder Agent, made by Hamza Ahmed. "
             "I help you fact-check news and analyze information using advanced AI and social media data. "
             "Ask me about any news, and I'll help you verify its credibility!"
         )
-    elif any(k in user_message.lower() for k in ["summarize", "summary", "short version", "tl;dr"]):
+    # News event intent detection and handoff
+    elif any(k in lower_msg for k in NEWS_EVENT_KEYWORDS):
+        return await news_event_agent(user_message)
+    elif any(k in lower_msg for k in ["summarize", "summary", "short version", "tl;dr"]):
         return await main_agent.handle(user_message, tool_name="summarize_news", news_text=user_message)
-    elif any(k in user_message.lower() for k in ["fact check", "is it true", "verify", "real or fake"]):
+    elif any(k in lower_msg for k in ["fact check", "is it true", "verify", "real or fake"]):
         return await main_agent.handle(user_message, tool_name="fact_checker", claim=user_message)
-    elif any(k in user_message.lower() for k in ["bias", "political bias", "tone", "sentiment"]):
+    elif any(k in lower_msg for k in ["bias", "political bias", "tone", "sentiment"]):
         return await main_agent.handle(user_message, tool_name="analyze_sentiment", text=user_message)
-    elif any(k in user_message.lower() for k in ["keywords", "extract", "entities"]):
+    elif any(k in lower_msg for k in ["keywords", "extract", "entities"]):
         return await main_agent.handle(user_message, tool_name="extract_keywords", text=user_message)
-    elif any(k in user_message.lower() for k in ["statistic", "number", "verify stat"]):
+    elif any(k in lower_msg for k in ["statistic", "number", "verify stat"]):
         return await main_agent.handle(user_message, tool_name="verify_stat", stat=user_message)
-    elif any(k in user_message.lower() for k in ["report", "generate report", "final report"]):
-        # Example: You'd need to gather summary, verdict, keywords first
+    elif any(k in lower_msg for k in ["report", "generate report", "final report"]):
         summary = await main_agent.handle(user_message, tool_name="summarize_news", news_text=user_message)
         verdict = await main_agent.handle(user_message, tool_name="fact_checker", claim=user_message)
         keywords = await main_agent.handle(user_message, tool_name="extract_keywords", text=user_message)
         return await main_agent.handle(user_message, tool_name="generate_report", summary=summary, verdict=verdict, keywords=keywords)
-    elif any(k in user_message.lower() for k in ["twitter", "tweet", "social media"]):
+    elif any(k in lower_msg for k in ["twitter", "tweet", "social media"]):
         return await main_agent.handle(user_message, tool_name="search_twitter", keyword=user_message)
     else:
         # Fallback: Use Gemini LLM for general chat
