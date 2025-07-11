@@ -36,32 +36,11 @@ INVESTIGATE_KEYWORDS = ["investigate", "investigation", "deep check"]
 REPORT_KEYWORDS = ["report", "generate report", "final report"]
 NEWS_KEYWORDS = ["news", "article", "headline", "report", "fact", "fake", "misinformation", "bias"]
 
-BLOCKED_KEYWORDS = [
-    'hate', 'violence', 'terror', 'kill', 'attack', 'explicit', 'nsfw', 'bomb', 'shoot', 'drugs', 'sex', 'porn',
-]
-
-PROMPT_INJECTION_PATTERNS = [
-    r'ignore previous instructions',
-    r'pretend to be',
-    r'you are now',
-    r'disable safety',
-    r'\[.*\]',
-]
-
 def sanitize_input(text: str) -> str:
     if not text:
         return text
-    text = re.sub(r'[<>"\\]', '', text)
+    text = re.sub(r'[<>"]', '', text)
     return text[:2000]
-
-def contains_blocked_keywords(text: str) -> bool:
-    return any(word in text.lower() for word in BLOCKED_KEYWORDS)
-
-def contains_prompt_injection(text: str) -> bool:
-    return any(re.search(pattern, text, re.IGNORECASE) for pattern in PROMPT_INJECTION_PATTERNS)
-
-def filter_output(text: str) -> str:
-    return '[REDACTED: Inappropriate content detected]' if contains_blocked_keywords(text) else text
 
 @router.post("/fact-check")
 async def fact_check_endpoint(request: FactCheckRequest):
@@ -72,12 +51,6 @@ async def fact_check_endpoint(request: FactCheckRequest):
         
         if not content:
             raise HTTPException(status_code=400, detail="Content cannot be empty.")
-        
-        if contains_blocked_keywords(content):
-            raise HTTPException(status_code=400, detail="Inappropriate content detected.")
-        
-        if contains_prompt_injection(content):
-            raise HTTPException(status_code=400, detail="Prompt injection attempt detected.")
         
         # Use the news analyzer for comprehensive analysis
         result = await news_analyzer.analyze_news_advanced(content, request.language or "english")
@@ -99,11 +72,6 @@ async def chat_agent(request: Request):
 
         if not message:
             raise HTTPException(status_code=400, detail="Message cannot be empty.")
-
-        if contains_blocked_keywords(message):
-            raise HTTPException(status_code=400, detail="Inappropriate content detected.")
-        if contains_prompt_injection(message):
-            raise HTTPException(status_code=400, detail="Prompt injection attempt detected.")
 
         history = CHAT_SESSIONS.setdefault(session_id, [])
         history.append({"role": "user", "content": message})
